@@ -16,7 +16,7 @@
  *	You should have received a copy of the GNU General Public License
  *	along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
- *	@author Sleepwalker
+ *	@author Seta00 and YamiKaitou
  *	@copyright (c) 2012 HLXBans
  *	@version 0.0.0.0001
  *	@License GPLv3

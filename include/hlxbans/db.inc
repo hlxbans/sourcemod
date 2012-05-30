@@ -30,40 +30,25 @@
  *
  */
 
-#include <sourcemod>
+#if defined _hlxbans_db_included_
+  #endinput
+#endif
+#define _hlxbans_db_included_
 
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
+#include "hlxbans/common"
+
+/* target is an auth id */
+native hlx_Check(String:target[], String:ip[]);
+native hlx_Ban(String:target[], time, String:reason[], AdminId:admin);
+native hlx_Unban(String:target[], String:reason[], AdminId:admin);
+native hlx_BanIP(String:address[], String:reason[], AdminId:admin);
+native hlx_FlagUser(String:target[], String:flag[], AdminId:admin);
+native hlx_UnflagUser(String:target[], String:flag[], AdminId:admin);
+
+enum hlx_MessageType
 {
-    CreateNative("hlx_Ban", Native_Ban);
-    CreateNative("hlx_Unban", Native_Ban);
-    CreateNative("hlx_BanIP", Native_Ban);
-    CreateNative("hlx_Flag", Native_Ban);
-    CreateNative("hlx_Unflag", Native_Ban);
-    return APLRes_Success;
-}
+    MessageType_All, // 'say' message
+    MessageType_Team // 'say2' or team say message
+};
 
-
-// native hlx_Ban(String:target[], time, String:reason[], AdminId:admin);
-public Native_Ban(Handle:plugin, numParams)
-{
-}
-
-// native hlx_Unban(String:target[], String:reason[], AdminId:admin);
-public Native_Unban(Handle:plugin, numParams)
-{
-}
-
-// native hlx_BanIP(String:address[], String:reason[], AdminId:admin);
-public Native_BanIP(Handle:plugin, numParams)
-{
-}
-
-// native hlx_FlagUser(String:target[], String:flag[], AdminId:admin);
-public Native_Flag(Handle:plugin, numParams)
-{
-}
-
-// native hlx_UnflagUser(String:target[], String:flag[], AdminId:admin);
-public Native_Unflag(Handle:plugin, numParams)
-{
-}
+native hlx_PushChatMessage(String:client[], String:line[], hlx_MessageType:type = MessageType_All);

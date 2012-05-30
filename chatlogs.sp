@@ -76,7 +76,7 @@ public Action:Event_PlayerChat(Handle:event, const String:name[], bool:dontBroad
         GetClientAuthString(GetClientOfUserId(GetEventInt(event, "userid")), authid, sizeof authid);
         GetEventString(event, "text", message, sizeof message);
 
-        hlx_MessageType:type = GetEventBool(event, "teamonly") ? MessageType_Team : MessageType_All;
+        decl hlx_MessageType:type = GetEventBool(event, "teamonly") ? MessageType_Team : MessageType_All;
         hlx_PushChatMessage(authid, message, type);        
     }
     

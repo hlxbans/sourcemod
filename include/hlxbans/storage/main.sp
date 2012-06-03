@@ -1,27 +1,34 @@
-Primary_Check(Handle:db, String:target[], String:ip[])
+Primary_Check(Handle:db, const String:target[], const String:ip[])
 {
+	return 0;
 }
 
-Primary_Ban(Handle:db, String:target[], time, String:reason[], AdminId:admin)
+Primary_Ban(Handle:db, const String:targetId[], const String:targetNick[], const String:targetIp[], time, const String:reason[], const String:adminId[])
 {
+	return 0;
 }
 
-Primary_Unban(Handle:db, String:target[], String:reason[], AdminId:admin)
+Primary_Unban(Handle:db, const String:target[], const String:reason[], const String:adminId[])
 {
+	return 0;
 }
 
-Primary_BanIP(Handle:db, String:address[], String:reason[], AdminId:admin)
+Primary_BanIP(Handle:db, const String:address[], const String:reason[], const String:adminId[])
 {
+	return 0;
 }
 
-Primary_Flag(Handle:db, String:target[], String:flag[], AdminId:admin)
+Primary_Flag(Handle:db, const String:target[], const String:flag[], const String:adminId[])
 {
+	return 0;
 }
 
-Primary_Unflag(Handle:db, String:target[], String:flag[], AdminId:admin)
+Primary_Unflag(Handle:db, const String:target[], const String:flag[], const String:adminId[])
 {
+	return 0;
 }
 
-Primary_PushChatMessage(Handle:db, String:target[], String:message[], bool:team)
+Primary_PushChatMessage(Handle:db, const String:target[], const String:message[], bool:teamOnly)
 {
+	return 0;
 }

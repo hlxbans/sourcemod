@@ -29,11 +29,11 @@
  * writing, version JULY-31-2007).
  *
  */
-
+     
 #include <sourcemod>
 #include <dbi>
 
-#include "common"
+#include "hlxbans/common"
 
 #include "storage/main.sp"
 #include "storage/cache.sp"
@@ -41,17 +41,9 @@
 /* Storage engine states:
     - IDLE: waiting for next command
     - LOAD: try to load info from DB (ie. on player connection)
-    - STORE: try to store info in DB (ie. saving a ban)
-        Both LOAD and STORE can end successfully, returning to IDLE, or fail
-        to access the database, going then to the FAIL state.
-    - FAIL: register a failure according to the plugin configuration (plugin logs,
-            server logs, etc), store to cache and enter RETRY state.
     - RETRY: try to reach the main database again according to the plugin configuration.
              Future actions can cause us to leave RETRY state earlier. If we successfully
              reach the server in RETRY state, we go to the RESTORE state. 
-    - RESTORE: transplant cached bans to main database. This can be an expensive operation
-               depending on how long the primary db has been unreachable and the server
-               activity.
 
     Note that the secondary storage does little error checking. If we fail to acquire
     a handle to a local SQLite DB, the plugin will die gracefully as there's no way to
@@ -60,43 +52,29 @@
 enum StorageState {
     IDLE
     ,LOAD
-    ,STORE
-    ,FAIL
     ,RETRY
-    ,RESTORE
 };
 
-new StorageState:g_state = IDLE;
+static StorageState:g_state = StorageState:-1;
 
 // main is usually MySQL remote and secondary is usually local SQLite
-new Handle:g_primDB = INVALID_HANDLE, Handle:g_secDB = INVALID_HANDLE;
+static Handle:g_primDB = INVALID_HANDLE, Handle:g_secDB = INVALID_HANDLE;
 
-new Handle:g_cvRetryInterval;
+static Handle:g_cvRetryInterval;
 
-public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
-{
-    CreateNative("hlx_Ban", Native_Ban);
-    CreateNative("hlx_Unban", Native_Unban);
-    CreateNative("hlx_BanIP", Native_BanIP);
-    CreateNative("hlx_Flag", Native_Flag);
-    CreateNative("hlx_Unflag", Native_Unflag);
-    CreateNative("hlx_PushChatMessage", Native_PushChatMessage);
-    return APLRes_Success;
-}
-
-public OnPluginLoad()
+InitStorage()
 {
     g_state = LOAD;
 
     g_cvRetryInterval = CreateConVar("hlx_retry_interval", "60", "Interval for retrying database access", .hasMin=true, .min=0.0);
 
-    SQL_TConnect(ConnectCallback, "hlxbans");
+    SQL_TConnect(ConnectCallback, "hlxbans", 1);
 }
 
 public ConnectCallback(Handle:owner, Handle:hndl, const String:error[], any:retryCount)
 {
     if (hndl == INVALID_HANDLE) {
-        if (retryCount > 0)
+        if (retryCount > 1)
             hlx_Log("Primary database unreachable after %d attempts (%s).", retryCount, error);
         else
             hlx_Log("Primary database unreachable (%s).", error);
@@ -117,7 +95,7 @@ public ConnectCallback(Handle:owner, Handle:hndl, const String:error[], any:retr
 
     if (g_primDB == INVALID_HANDLE) {
         g_state = RETRY;
-        CreateTimer(GetConVarFloat(g_cvRetryInterval), RetryTimer, retryCount);
+        CreateTimer(GetConVarFloat(g_cvRetryInterval), RetryTimer, retryCount+1);
     } else {
         g_state = IDLE;
     }
@@ -125,88 +103,64 @@ public ConnectCallback(Handle:owner, Handle:hndl, const String:error[], any:retr
 
 public Action:RetryTimer(Handle:timer, any:retryCount)
 {
-    SQL_TConnect(ConnectCallback, "hlxbans", retryCount+1);
+    SQL_TConnect(ConnectCallback, "hlxbans", retryCount);
 }
 
-stock bool:StorageAvailable()
+static bool:StorageAvailable()
 {
     return g_state == IDLE || g_state == RETRY;
 }
 
-// native hlx_Check(String:target[], String:ip[]);
-public Native_Check(Handle:plugin, numParams)
+hlx_Check(const String:target[], const String:ip[])
+{
+    PrintToServer("hlx_Check");
+    if (!StorageAvailable())
+        return -1;
+
+    if (g_state == IDLE) {
+        return Primary_Check(g_primDB, target, ip);
+    } else {
+        return Secondary_Check(g_secDB, target, ip);
+    }
+}
+
+hlx_Ban(const String:targetId[], const String:targetNick[], const String:targetIp[], time, const String:reason[], const String:adminId[])
 {
     if (!StorageAvailable())
         return -1;
 
-    decl String:target[32], String:ip[32];
-    GetNativeString(1, target, sizeof target);
-    GetNativeString(2, ip, sizeof ip);
-
     if (g_state == IDLE) {
-        return Primary_Check(target, ip);
+        return Primary_Ban(g_primDB, targetId, targetNick, targetIp, time, reason, adminId);
     } else {
-        return Secondary_Check(target, ip);
+        return Secondary_Ban(g_secDB, targetId, targetNick, targetIp, time, reason, adminId);
     }
 }
 
-// native hlx_Ban(String:target[], time, String:reason[], AdminId:admin);
-public Native_Ban(Handle:plugin, numParams)
+hlx_Unban(const String:target[], const String:reason[], const String:adminId[])
 {
     if (!StorageAvailable())
         return -1;
 
-    decl String:target[32], time, String:reason[255], AdminId:admin;
-    GetNativeString(1, target, sizeof target);
-    time = GetNativeCell(2);
-    GetNativeString(3, reason, sizeof reason);
-    admin = AdminId:GetNativeCell(4);
-
     if (g_state == IDLE) {
-        return Primary_Ban(target, time, reason, admin);
+        return Primary_Unban(g_primDB, target, reason, adminId);
     } else {
-        return Secondary_Ban(target, time, reason, admin);
+        return Secondary_Unban(g_secDB, target, reason, adminId);
     }
 }
 
-// native hlx_Unban(String:target[], String:reason[], AdminId:admin);
-public Native_Unban(Handle:plugin, numParams)
+hlx_BanIP(const String:address[], const String:reason[], const String:adminId[])
 {
     if (!StorageAvailable())
         return -1;
 
-    decl String:target[32], String:reason[255], AdminId:admin;
-    GetNativeString(1, target, sizeof target);
-    GetNativeString(2, reason, sizeof reason);
-    admin = GetNativeCell(3);
-
     if (g_state == IDLE) {
-        Primary_Unban(target, reason, admin);
+        return Primary_BanIP(g_primDB, address, reason, adminId);
     } else {
-        Secondary_Unban(target, reason, admin);
+        return Secondary_BanIP(g_secDB, address, reason, adminId);
     }
 }
 
-// native hlx_BanIP(String:address[], String:reason[], AdminId:admin);
-public Native_BanIP(Handle:plugin, numParams)
-{
-    if (!StorageAvailable())
-        return -1;
-
-    decl String:address[20], String:reason[255], AdminId:admin;
-    GetNativeString(1, address, sizeof address);
-    GetNativeString(2, reason, sizeof reason);
-    admin = GetNativeCell(3);
-
-    if (g_state == IDLE) {
-        Primary_BanIP(address, reason, admin);
-    } else {
-        Secondary_BanIP(address, reason, admin);
-    }
-}
-
-// native hlx_Flag(String:target[], String:flag[], AdminId:admin);
-public Native_Flag(Handle:plugin, numParams)
+hlx_Flag(const String:target[], const String:flag[], const String:adminId[])
 {
     if (!StorageAvailable())
         return -1;
@@ -217,27 +171,37 @@ public Native_Flag(Handle:plugin, numParams)
     admin = GetNativeCell(3);
 
     if (g_state == IDLE) {
-        Primary_Flag(target, flag, admin);
+        return Primary_Flag(g_primDB, target, flag, admin);
     } else {
-        Secondary_Flag(target, flag, admin);
+        return Secondary_Flag(g_secDB, target, flag, admin);
     }
 }
 
-// native hlx_Unflag(String:target[], String:flag[], AdminId:admin);
-public Native_Unflag(Handle:plugin, numParams)
+hlx_Unflag(const String:target[], const String:flag[], const String:adminId[])
 {
     if (!StorageAvailable())
         return -1;
 
-    decl String:target[32], String:flag[32], AdminId:admin;
-    GetNativeString(1, target, sizeof target);
-    GetNativeString(2, flag, sizeof flag);
-    admin = GetNativeCell(3);
-
     if (g_state == IDLE) {
-        Primary_UnFlag(target, flag, admin);
+        return Primary_Unflag(g_primDB, target, flag, adminId);
     } else {
-        Secondary_UnFlag(target, flag, admin);
+        return Secondary_Unflag(g_secDB, target, flag, adminId);
     }
 }
 
+hlx_PushChatMessage(const String:target[], const String:message[], bool:teamOnly)
+{
+    if (!StorageAvailable())
+        return -1;
+    
+    decl String:target[32], String:message[255], bool:teamOnly;
+    GetNativeString(1, target, sizeof target);
+    GetNativeString(2, message, sizeof message);
+    teamOnly = bool:GetNativeCell(3);
+    
+    if (g_state == IDLE) {
+        return Primary_PushChatMessage(g_primDB, target, message, teamOnly);
+    } else {
+        return Secondary_PushChatMessage(g_secDB, target, message, teamOnly);
+    }
+}

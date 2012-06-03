@@ -37,27 +37,55 @@
 
 #include <sourcemod>
 
-decl const String:hlx_version[] = "1.0";
-decl const String:hlx_chatPrefix[] = "[HLXBans] ";
+#include "hlxbans/smlib"
 
-enum ClientId
-{
-    INVALID_CLIENT_ID = -1, /**< An invalid/nonexistant client */
-};
+new const String:hlx_version[] = "1.0";
+new const String:hlx_chatPrefix[] = "[HLXBans] ";
 
-stock ClientId:hlx_ParseClientId(String:target[])
+/**
+ * Parses a target string, putting the resulting authid
+ * in `target' and returning the client index, -1 if
+ * the client is not in the server, or -2 if the input
+ * string is invalid.
+ *
+ * Accepted format for input is: #userid|steamid|name
+ */
+stock hlx_ParseTarget(const String:input[], String:target[32])
 {
-    return INVALID_CLIENT_ID;
+	if (input[0] == '#') { // this is a userid
+		new userid = StringToInt(input[1]);
+		if (!userid)
+			return -2;
+		
+		new client = GetClientOfUserId(userid);
+		if (!client)
+			return -2;
+		
+		GetClientAuthString(client, target, sizeof target);
+		return client;
+	} else { // try steamid and then name
+		if (StrContains(input, "STEAM_") == 0) { // starts with
+			strcopy(target, sizeof target, input);
+			return Client_FindBySteamId(input);
+		} else {
+			new client = Client_FindByName(target);
+			if (client == -1)
+				return -2;
+			
+			GetClientAuthString(client, target, sizeof target);
+			return client;
+		}
+	}
 }
 
 /**
  * Logs an action to the standard SourceMod logs and to the HLXBans log
  * Formatted message is cropped to 512 bytes.
  */
-stock HLX_Log(const String:format[], any:...)
+stock hlx_Log(const String:format[], any:...)
 {
-    static Handle:hlx_logFile = 0;
-    if (hlx_logFile == 0) {
+    static Handle:hlx_logFile = INVALID_HANDLE;
+    if (hlx_logFile == INVALID_HANDLE) {
         decl String:logFile[256];
         BuildPath(Path_SM, logFile, sizeof logFile, "logs/hlxbans.log");
         hlx_logFile = OpenFile(logFile, "a");

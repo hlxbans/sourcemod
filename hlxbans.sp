@@ -33,7 +33,7 @@
 #include <sourcemod>
 
 #include "hlxbans/common"
-#include "hlxbans/db"
+#include "hlxbans/storage.sp"
 
 public Plugin:myinfo =
 {
@@ -54,15 +54,19 @@ public APLRes:AskPluginLoad2(Handle:myself, bool:late, String:error[], err_max)
 
 public OnPluginStart()
 {   
+    InitStorage();
+    
     LoadTranslations("common.phrases");
     //LoadTranslations("hlxbans.phrases");
     
     CreateConVar("hlxbans_version", hlx_version, _, FCVAR_PLUGIN|FCVAR_SPONLY|FCVAR_REPLICATED|FCVAR_NOTIFY);
     
-    RegAdminCmd("sm_ban", Cmd_Ban, ADMFLAG_BAN, "sm_ban <#userid|name> <minutes|0> [reason]");
-    RegAdminCmd("sm_unban", Cmd_Unban, ADMFLAG_UNBAN, "sm_unban <steamid|ip> [reason]");
+    RegAdminCmd("sm_ban", Cmd_Ban, ADMFLAG_BAN, "sm_ban <#userid|steamid|name> <minutes|0> [reason]");
+    RegAdminCmd("sm_unban", Cmd_Unban, ADMFLAG_UNBAN, "sm_unban <steamid> [reason]");
     RegAdminCmd("sm_addban", Cmd_AddBan, ADMFLAG_RCON, "sm_addban <time> <steamid> [reason]");
-    RegAdminCmd("sm_banip", Cmd_BanIp, ADMFLAG_BAN, "sm_banip <ip|#userid|name> <time> [reason]");
+    RegAdminCmd("sm_banip", Cmd_BanIp, ADMFLAG_BAN, "sm_banip <ip|#userid|steamid|name> <time> [reason]");
+    
+    RegAdminCmd("hlx_check", Cmd_Check, ADMFLAG_GENERIC, "hlx_check <steamid|#userid|name>");
     
     if (g_bLateLoaded) {
         decl String:authid[32];
@@ -80,7 +84,7 @@ public OnAllPluginsLoaded()
     new Handle:basebans = FindPluginByFile("basebans.smx");
     if (basebans != INVALID_HANDLE && GetPluginStatus(basebans) == Plugin_Running) {
         ServerCommand("sm plugins unload basebans");
-        HLX_Log("Unloaded basebans plugin");
+        hlx_Log("Unloaded basebans plugin");
     }
 }
 
@@ -103,26 +107,64 @@ public OnClientAuthorized(client, const String:auth[])
         COMMANDS
  ***********************/
 
-// sm_ban <#userid|name> <minutes|0> [reason]
+// sm_ban <#userid|steamid|name> <minutes|0> [reason]
 public Action:Cmd_Ban(client, args)
 {
-
+    if (args < 2) {
+        ReplyToCommand(client, "Usage: sm_ban <#userid|steamid|name> <minutes|0> [reason].");
+        return Plugin_Handled;
+    }
+    
+    decl String:target[32], String:argTime[10], String:reason[255];
+    GetCmdArg(1, target, sizeof target);
+    GetCmdArg(2, argTime, sizeof argTime);
+    
+    new time = StringToInt(argTime);
+    
+    if (args >= 3) {
+        GetCmdArg(3, reason, sizeof reason);
+    }
+    
+    new String:finalTarget[32];
+    new targetClient = hlx_ParseTarget(target, finalTarget);
+    
+    decl String:adminId[32];
+    GetClientAuthString(client, adminId, sizeof adminId);
+    
+    if (targetClient == -1) { // offline ban, no nick or IP
+        hlx_Ban(finalTarget, "", "", time, reason, adminId);
+    } else {
+        decl String:targetNick[32], String:targetIp[32];
+        GetClientName(targetClient, targetNick, sizeof targetNick);
+        GetClientIP(targetClient, targetIp, sizeof targetIp);
+        
+        hlx_Ban(finalTarget, targetNick, targetIp, time, reason, adminId);
+    }
+    
+    return Plugin_Handled;
 }
 
 // sm_unban <steamid|ip> [reason]
 public Action:Cmd_Unban(client, args)
 {
-
+    return Plugin_Handled;
 }
 
 // sm_addban <time> <steamid> [reason]
 public Action:Cmd_AddBan(client, args)
 {
-
+    return Plugin_Handled;
 }
 
 // sm_banip <ip|#userid|name> <time> [reason]
 public Action:Cmd_BanIp(client, args)
 {
+    return Plugin_Handled;
+}
 
+// hlx_check <steamid|#userid|name>
+public Action:Cmd_Check(client, args)
+{
+    hlx_Check("foo", "foo");
+    return Plugin_Handled;
 }

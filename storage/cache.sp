@@ -1,5 +1,6 @@
 Secondary_Check(Handle:db, String:target[], String:ip[])
 {
+	PrintToServer("Secondary_Check");
 }
 
 Secondary_Ban(Handle:db, String:target[], time, String:reason[], AdminId:admin)

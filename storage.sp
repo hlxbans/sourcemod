@@ -38,7 +38,7 @@
 #include "storage/main.sp"
 #include "storage/cache.sp"
 
-/* The storage engine is a state machine:
+/* Storage engine states:
     - IDLE: waiting for next command
     - LOAD: try to load info from DB (ie. on player connection)
     - STORE: try to store info in DB (ie. saving a ban)
@@ -153,25 +153,91 @@ public Native_Check(Handle:plugin, numParams)
 // native hlx_Ban(String:target[], time, String:reason[], AdminId:admin);
 public Native_Ban(Handle:plugin, numParams)
 {
+    if (!StorageAvailable())
+        return -1;
+
+    decl String:target[32], time, String:reason[255], AdminId:admin;
+    GetNativeString(1, target, sizeof target);
+    time = GetNativeCell(2);
+    GetNativeString(3, reason, sizeof reason);
+    admin = AdminId:GetNativeCell(4);
+
+    if (g_state == IDLE) {
+        return Primary_Ban(target, time, reason, admin);
+    } else {
+        return Secondary_Ban(target, time, reason, admin);
+    }
 }
 
 // native hlx_Unban(String:target[], String:reason[], AdminId:admin);
 public Native_Unban(Handle:plugin, numParams)
 {
+    if (!StorageAvailable())
+        return -1;
+
+    decl String:target[32], String:reason[255], AdminId:admin;
+    GetNativeString(1, target, sizeof target);
+    GetNativeString(2, reason, sizeof reason);
+    admin = GetNativeCell(3);
+
+    if (g_state == IDLE) {
+        Primary_Unban(target, reason, admin);
+    } else {
+        Secondary_Unban(target, reason, admin);
+    }
 }
 
 // native hlx_BanIP(String:address[], String:reason[], AdminId:admin);
 public Native_BanIP(Handle:plugin, numParams)
 {
+    if (!StorageAvailable())
+        return -1;
+
+    decl String:address[20], String:reason[255], AdminId:admin;
+    GetNativeString(1, address, sizeof address);
+    GetNativeString(2, reason, sizeof reason);
+    admin = GetNativeCell(3);
+
+    if (g_state == IDLE) {
+        Primary_BanIP(address, reason, admin);
+    } else {
+        Secondary_BanIP(address, reason, admin);
+    }
 }
 
-// native hlx_FlagUser(String:target[], String:flag[], AdminId:admin);
+// native hlx_Flag(String:target[], String:flag[], AdminId:admin);
 public Native_Flag(Handle:plugin, numParams)
 {
+    if (!StorageAvailable())
+        return -1;
+
+    decl String:target[32], String:flag[32], AdminId:admin;
+    GetNativeString(1, target, sizeof target);
+    GetNativeString(2, flag, sizeof flag);
+    admin = GetNativeCell(3);
+
+    if (g_state == IDLE) {
+        Primary_Flag(target, flag, admin);
+    } else {
+        Secondary_Flag(target, flag, admin);
+    }
 }
 
-// native hlx_UnflagUser(String:target[], String:flag[], AdminId:admin);
+// native hlx_Unflag(String:target[], String:flag[], AdminId:admin);
 public Native_Unflag(Handle:plugin, numParams)
 {
+    if (!StorageAvailable())
+        return -1;
+
+    decl String:target[32], String:flag[32], AdminId:admin;
+    GetNativeString(1, target, sizeof target);
+    GetNativeString(2, flag, sizeof flag);
+    admin = GetNativeCell(3);
+
+    if (g_state == IDLE) {
+        Primary_UnFlag(target, flag, admin);
+    } else {
+        Secondary_UnFlag(target, flag, admin);
+    }
 }
 

@@ -42,8 +42,8 @@ native hlx_Check(String:target[], String:ip[]);
 native hlx_Ban(String:target[], time, String:reason[], AdminId:admin);
 native hlx_Unban(String:target[], String:reason[], AdminId:admin);
 native hlx_BanIP(String:address[], String:reason[], AdminId:admin);
-native hlx_FlagUser(String:target[], String:flag[], AdminId:admin);
-native hlx_UnflagUser(String:target[], String:flag[], AdminId:admin);
+native hlx_Flag(String:target[], String:flag[], AdminId:admin);
+native hlx_Unflag(String:target[], String:flag[], AdminId:admin);
 
 enum hlx_MessageType
 {

@@ -63,10 +63,13 @@ stock hlx_ParseTarget(const String:input[], String:target[32])
 		
 		GetClientAuthString(client, target, sizeof target);
 		return client;
-	} else { // try steamid and then name
+	} else { // try steamid, IP, then name
 		if (StrContains(input, "STEAM_") == 0) { // starts with
 			strcopy(target, sizeof target, input);
 			return Client_FindBySteamId(input);
+		} else if (SimpleRegexMatch(input, "(\d{1,3}\.){3}(\d{1,3})")) {
+			strcopy(target, sizeof target, input);
+			return -1;
 		} else {
 			new client = Client_FindByName(target);
 			if (client == -1)

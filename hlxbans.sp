@@ -115,21 +115,22 @@ public Action:Cmd_Ban(client, args)
         return Plugin_Handled;
     }
     
-    decl String:target[32], String:argTime[10], String:reason[255];
+    decl String:target[32], String:argTime[10];
     GetCmdArg(1, target, sizeof target);
     GetCmdArg(2, argTime, sizeof argTime);
     
     new time = StringToInt(argTime);
     
-    if (args >= 3) {
+	new String:reason[255];
+    if (args > 2) {
         GetCmdArg(3, reason, sizeof reason);
     }
-    
-    new String:finalTarget[32];
-    new targetClient = hlx_ParseTarget(target, finalTarget);
-    
+	    
     decl String:adminId[32];
     GetClientAuthString(client, adminId, sizeof adminId);
+	
+    new String:finalTarget[32];
+    new targetClient = hlx_ParseTarget(target, finalTarget);
     
     if (targetClient == -1) { // offline ban, no nick or IP
         hlx_Ban(finalTarget, "", "", time, reason, adminId);
@@ -147,24 +148,98 @@ public Action:Cmd_Ban(client, args)
 // sm_unban <steamid|ip> [reason]
 public Action:Cmd_Unban(client, args)
 {
+    if (args < 1) {
+        ReplyToCommand(client, "Usage: sm_unban <#userid|steamid|name> [reason].");
+        return Plugin_Handled;
+    }
+    
+	decl String:target[32];
+	GetCmdArg(1, target, sizeof target);
+	
+	new String:reason[255];
+    if (args > 1) {
+        GetCmdArg(2, reason, sizeof reason);
+    }
+	
+	decl String:adminId[32];
+	GetClientAuthString(client, adminId, sizeof adminId);
+	
+    new String:finalTarget[32];
+    hlx_ParseTarget(target, finalTarget);
+	hlx_Unban(finalTarget, reason, adminId);
+	
     return Plugin_Handled;
 }
 
-// sm_addban <time> <steamid> [reason]
+// sm_addban <steamid> <minutes|0> [reason]
 public Action:Cmd_AddBan(client, args)
 {
-    return Plugin_Handled;
+	if (args < 2) {
+		ReplyToCommand(client, "Usage: sm_addban <steamid> <minutes|0> [reason]");
+		return Plugin_Handled;
+	}
+	
+	return Cmd_Ban(client, args);
 }
 
 // sm_banip <ip|#userid|name> <time> [reason]
 public Action:Cmd_BanIp(client, args)
 {
+	if (args < 2) {
+		ReplyToCommand(client, "Usage: sm_banip <ip|#userid|name> <time> [reason]");
+		return Plugin_Handled;
+	}
+	
+    decl String:target[32], String:argTime[10];
+    GetCmdArg(1, target, sizeof target);
+    GetCmdArg(2, argTime, sizeof argTime);
+    
+    new time = StringToInt(argTime);
+    
+	new String:reason[255];
+    if (args > 2) {
+        GetCmdArg(3, reason, sizeof reason);
+    }
+	    
+    decl String:adminId[32];
+    GetClientAuthString(client, adminId, sizeof adminId);
+	
+    new String:finalTarget[32];
+    new targetClient = hlx_ParseTarget(target, finalTarget);
+    if (targetClient == -1) { // offline ban, assume IP
+        hlx_Ban("", "", finalTarget, time, reason, adminId);
+    } else {
+        decl String:targetNick[32], String:targetIp[32];
+        GetClientName(targetClient, targetNick, sizeof targetNick);
+        GetClientIP(targetClient, targetIp, sizeof targetIp);
+        
+        hlx_Ban(finalTarget, targetNick, targetIp, time, reason, adminId);
+    }
+	
     return Plugin_Handled;
 }
 
 // hlx_check <steamid|#userid|name>
 public Action:Cmd_Check(client, args)
 {
-    hlx_Check("foo", "foo");
+	if (args < 1) {
+		ReplyToCommand(client, "Usage: hlx_check <steamid|#userid|name>");
+		return Plugin_Handled;
+	}
+	
+    decl String:target[32];
+    GetCmdArg(1, target, sizeof target);
+	
+	new String:finalTarget[32];
+	new targetClient = hlx_ParseTarget(target, finalTarget);
+	if (targetClient == -1) { // IP
+		hlx_Check("", finalTarget);
+	} else {
+		decl String:targetIp[32];
+		GetClientIP(targetClient, targetIp, sizeof targetIp);
+		
+		hlx_Check(finalTarget, targetIp);
+	}
+	
     return Plugin_Handled;
 }

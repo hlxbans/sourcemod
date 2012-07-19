@@ -113,7 +113,6 @@ static bool:StorageAvailable()
 
 hlx_Check(const String:target[], const String:ip[])
 {
-    PrintToServer("hlx_Check");
     if (!StorageAvailable())
         return -1;
 
